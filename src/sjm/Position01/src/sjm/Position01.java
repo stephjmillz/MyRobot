@@ -10,7 +10,10 @@ import robocode.Robot;
 import robocode.ScannedRobotEvent;
 
 public class Position01 extends Robot {
+	
 	int trigger;
+	boolean peek; // Don't turn if there's a robot there
+	double moveAmount; // How much to move
 	
 	public void run() {
 		
@@ -30,15 +33,33 @@ public class Position01 extends Robot {
 			}
 		});
 	
-		
-		
-		while(true) {
-			ahead(100);
-			turnGunRight(360);
-			back(100);
-			turnGunRight(360);
+		moveAmount = Math.max(getBattleFieldWidth(), getBattleFieldHeight());
+		// Initialize peek to false
+		peek = false;
+
+		// turnLeft to face a wall.
+		// getHeading() % 90 means the remainder of
+		// getHeading() divided by 90.
+		turnLeft(getHeading() % 90);
+		ahead(moveAmount);
+		// Turn the gun to turn right 90 degrees.
+		peek = true;
+		turnGunRight(90);
+		turnRight(90);
+
+		while (true) {
+			// Look before we turn when ahead() completes.
+			peek = true;
+			// Move up the wall
+			ahead(moveAmount);
+			// Don't look now
+			peek = false;
+			// Turn to the next wall
+			turnRight(90);
 		}
 	}
+		
+	
 	
 	
 	
@@ -47,12 +68,45 @@ public class Position01 extends Robot {
 		
 	}
 
+	
 
 
 	public void onScannedRobot(ScannedRobotEvent e) {
-		fire(25);
-	}
+		// Calculate exact location of the robot
+				double absoluteBearing = getHeading() + e.getBearing();
+				double bearingFromGun = normalRelativeAngleDegrees(absoluteBearing - getGunHeading());
+
+				// If it's close enough, fire!
+				if (Math.abs(bearingFromGun) <= 3) {
+					turnGunRight(bearingFromGun);
+					// We check gun heat here, because calling fire()
+					// uses a turn, which could cause us to lose track
+					// of the other robot.
+					if (getGunHeat() == 0) {
+						fire(Math.min(3 - Math.abs(bearingFromGun), getEnergy() - .1));
+					}
+				} // otherwise just set the gun to turn.
+				// Note:  This will have no effect until we call scan()
+				else {
+					turnGunRight(bearingFromGun);
+				}
+				// Generates another scan event if we see a robot.
+				// We only need to call this if the gun (and therefore radar)
+				// are not turning.  Otherwise, scan is called automatically.
+				if (bearingFromGun == 0) {
+					scan();
+				}
+			}
 	
+	private double normalRelativeAngleDegrees(double d) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+
+
+
+
 	public void onHitByBullet (HitByBulletEvent e) {
 		back(3);
 	}
@@ -60,6 +114,10 @@ public class Position01 extends Robot {
 	public void onHitWall(HitWallEvent e) {
 		back (10);
 	}
+	
+	
+	
+	
 	
 	
 	public void onCustomEvent(CustomEvent e) {
